@@ -1,21 +1,125 @@
-import xlrd
+import tkinter as tk
+#from openpyxl import *
+#from openpyxl import Workbook, load_workbook
+#from tkinter import Frame
+#import xlrd
+import math
 import serial
-
-loc = ("F:\\Coding\\follow_bot.xlsx")
-ser1 = serial.Serial('COM8', 9600)
-wb = xlrd.open_workbook(loc)
-sheet = wb.sheet_by_index(0)
+import time
 
 
-sheet.cell_value(0, 0)
+ser1 = serial.Serial('COM6', 9600)
+p=[]
+q=[]
+def motion(event):
+    root.bind('<Motion>', myfunction)
 
-p = []
-q = []
-for i in range(sheet.nrows):
-    x = sheet.cell_value(i, 0)
-    y = sheet.cell_value(i, 1)
-    p.append(x)
-    q.append(y)
-    print(p[i])
-    print(q[i])
-    ser1.write(bytes(p[i],q[i]))
+def myfunction(event):
+
+    x, y = event.x, event.y
+    if canvas.old_coords:
+        x1, y1 = canvas.old_coords
+
+        canvas.create_line(x, y, x1, y1)
+        #print(x,y,x1,y1)
+        dist=math.sqrt((int(x1)-int(x))**2 + (int(y1)-int(y))**2)
+        dis_coord = format(int(dist), '03d')
+        if ((x-x1) < 0):
+            dis_coord=-1*int(dis_coord)
+        dis_str =str(dis_coord)
+        if x==x1:
+            angle=90
+        else:
+            angle = (int(y) - int(y1)) / (int(x) - int(x1))
+        ang_degrees = math.degrees(math.atan(angle))
+        angle_coord = format(int(ang_degrees), '03d')
+        print(angle_coord)
+        print(dis_coord)
+        send_str = str(angle_coord)
+        p.append(angle_coord)
+        p.append(dis_str)
+        global t,b
+        t=p[0]
+        b=p[1]
+    canvas.old_coords = x, y
+
+def end(event):
+
+   # print(t)
+    #print(b)
+    send_str = str(t)
+    send_str1=str(b)
+    q.append(t)
+    q.append(b)
+    #ser1.write(send_str.encode())
+    # ser1.write(send_str1.encode())
+    i = 0
+    while i < len(p)-2:
+        if (int(p[i]) <= 0 and int(p[i+2]) <= 0) and (int(p[i+3]) >= 0):
+            q.append(-int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i+3]))
+        elif (int(p[i]) < 0 and int(p[i+2]) < 0) and (int(p[i+3])<0) and (abs(int(p[i]))>abs((int(p[i+2])))):
+            q.append(-180-int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        elif (int(p[i]) < 0 and int(p[i+2]) < 0) and (int(p[i+3])<0) and (abs(int(p[i])))<(abs(int(p[i+2]))):
+            q.append(180-int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        elif (int(p[i]) < 0 and int(p[i+2]) > 0) and (int(p[i+3])>=0):
+            q.append(-int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        elif (int(p[i]) < 0 and int(p[i+2]) > 0) and (int(p[i+3])<0):
+            q.append(-180 - int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        elif ((int(p[i]) > 0 and int(p[i + 2])) < 0) and (int(p[i+3])<0):
+            q.append(- int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        elif ((int(p[i]) > 0 and int(p[i + 2])) < 0) and (int(p[i + 3]) > 0):
+            q.append(180 - int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        elif ((int(p[i]) > 0 and int(p[i + 2])) > 0) and (int(p[i+3])>0) and (abs(int(p[i])))<(abs(int(p[i+2]))):
+            q.append(-180 - int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        elif ((int(p[i]) > 0 and int(p[i + 2])) > 0) and (int(p[i + 3]) > 0) and (abs(int(p[i])))>(abs(int(p[i + 2]))):
+            q.append(180-int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        elif ((int(p[i]) > 0 and int(p[i + 2])) > 0) and (int(p[i+3])<0):
+            q.append(-int(p[i]) + int(p[i + 2]))
+            q.append(int(p[i + 3]))
+        else:
+            break;
+
+        i = i + 2
+    j=0
+    for j in range(len(p)):
+        if(j%2!=0):
+            q[j]=abs(int(q[j]))
+        q[j]=format(int(q[j]),'04d')
+        print(q[j])
+    k=0
+    r1=1
+    while k < len(q) :
+        str3=str(q[k])+str(q[k+1])
+        print(str3)
+        ser1.write(str3.encode())
+        time.sleep((int(q[k+1])/4)*0.5+1)
+        k=k+2
+        r1=r1+2
+    ser1.flush()
+    exit()
+
+
+
+root = tk.Tk()
+
+
+
+
+canvas = tk.Canvas(root, width=400, height=400)
+canvas.pack()
+canvas.old_coords = None
+
+root.bind('<Button 1>', myfunction)
+root.bind('<Shift-Up>',end)
+
+
+root.mainloop()
